@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<head>
+    <title>websocket</title>
+    <script type="text/javascript" src="http://ajax.microsoft.com/ajax/jquery/jquery-1.4.min.js"></script>
+    <script src="https://eqcn.ajz.miesnfu.com/wp-content/plugins/wp-3d-pony/live2dw/lib/L2Dwidget.min.js"></script>
+</head>
+
+<body>
+<div style="margin: auto;text-align: center">
+    <h1>Welcome to websocket</h1>
+</div>
+<br/>
+<div style="margin: auto;text-align: center">
+    <select id="onLineUser">
+        <option>--所有--</option>
+    </select>
+    <input id="text" type="text" />
+    <button onclick="send()">发送消息</button>
+</div>
+<br>
+
+<div style="margin-right: 10px;text-align: center">
+    <button onclick="openWebSocket()">打开连接</button>
+</div>
+<div style="margin-right: 10px;text-align: right">
+    <button onclick="closeWebSocket()">关闭连接</button>
+</div>
+<hr/>
+<div id="message" style="text-align: center;"></div>
+<p>【userId】：<div><input id="userId" name="userId" type="text" value="${username}"></div>
+<input  type="text"  th:value="${username}" id="username" style="display: none" />
+
+<canvas id="live2dcanvas" width="300" height="600" style="position: fixed; opacity: 0.7; right: 0px; bottom: -20px; z-index: 99999; pointer-events: none;"></canvas>
+
+</body>
+
+
+<script>
+    var webSocket;
+    var commWebSocket;
+    function getRealPath(){
+        //获取当前网址，如： http://localhost:8083/myproj/view/ahha.jsp
+        var curWwwPath=window.document.location.href;
+        //获取主机地址之后的目录，如： myproj/view/ahha.jsp
+        var pathName=window.document.location.pathname;
+        var pos=curWwwPath.indexOf(pathName);
+        //获取主机地址，如： http://localhost:8080
+        var localhostPaht=curWwwPath.substring(0,pos);
+        //获取带"/"的项目名，如：/ahha
+        var projectName=pathName.substring(0,pathName.substr(1).indexOf('/')+1);
+
+        //得到了 服务器名称和项目名称
+        var realPath=localhostPaht+projectName;
+        return localhostPaht;
+    }
+
+    function openWebSocket() {
+
+        if(typeof(WebSocket) == "undefined") {
+            console.log("您的浏览器不支持WebSocket");
+        }else {
+            console.log("您的浏览器支持WebSocket");
+            //实现化WebSocket对象，指定要连接的服务器地址与端口  建立连接
+            //等同于socket = new WebSocket("ws://localhost:8888/xxxx/im/25");
+            //var socketUrl="${request.contextPath}/im/"+$("#userId").val();
+            var socketUrl=getRealPath()+"/demo/websocket/"+$("#userId").val();
+            socketUrl=socketUrl.replace("https","ws").replace("http","ws");
+            console.log(socketUrl);
+            if(webSocket!=null){
+                webSocket.close();
+                webSocket=null;
+            }
+            webSocket = new WebSocket(socketUrl);
+
+            // webSocket = new WebSocket("ws://localhost:8080/demo/websocket/" + document.getElementById('username').value);
+
+            //连通之后的回调事件
+            webSocket.onopen = function () {
+                //webSocket.send( document.getElementById('username').value+"已经上线了");
+                console.log("已经连通了websocket");
+                setMessageInnerHTML("已经连通了websocket");
+            };
+
+            //接收后台服务端的消息
+            webSocket.onmessage = function (evt) {
+                var received_msg = evt.data;
+                console.log("数据已接收:" + received_msg);
+                var obj = JSON.parse(received_msg);
+                console.log("可以解析成json:" + obj.messageType);
+                //1代表上线 2代表下线 3代表在线名单 4代表普通消息
+                if (obj.messageType == 1) {
+                    //把名称放入到selection当中供选择
+                    var onlineName = obj.username;
+                    var option = "<option>" + onlineName + "</option>";
+                    $("#onLineUser").append(option);
+                    setMessageInnerHTML(onlineName + "上线了");
+                } else if (obj.messageType == 2) {
+                    $("#onLineUser").empty();
+                    var onlineName = obj.onlineUsers;
+                    var offlineName = obj.username;
+                    var option = "<option>" + "--所有--" + "</option>";
+                    for (var i = 0; i < onlineName.length; i++) {
+                        if (!(onlineName[i] == document.getElementById('username').value)) {
+                            option += "<option>" + onlineName[i] + "</option>"
+                        }
+                    }
+                    $("#onLineUser").append(option);
+
+                    setMessageInnerHTML(offlineName + "下线了");
+                } else if (obj.messageType == 3) {
+                    var onlineName = obj.onlineUsers;
+                    var option = null;
+                    for (var i = 0; i < onlineName.length; i++) {
+                        if (!(onlineName[i] == document.getElementById('username').value)) {
+                            option += "<option>" + onlineName[i] + "</option>"
+                        }
+                    }
+                    $("#onLineUser").append(option);
+                    console.log("获取了在线的名单" + onlineName.toString());
+                } else {
+                    setMessageInnerHTML(obj.fromusername + "对" + obj.tousername + "说：" + obj.textMessage);
+                }
+            };
+
+            //连接关闭的回调事件
+            webSocket.onclose = function () {
+                console.log("连接已关闭...");
+                setMessageInnerHTML("连接已经关闭....");
+            };
+        }
+    }
+
+    //将消息显示在网页上
+    function setMessageInnerHTML(innerHTML) {
+        document.getElementById('message').innerHTML += innerHTML + '<br/>';
+    }
+
+    function closeWebSocket() {
+        //直接关闭websocket的连接
+        webSocket.close();
+    }
+
+    function send() {
+        var selectText = $("#onLineUser").find("option:selected").text();
+        if(selectText=="--所有--"){
+            selectText = "All";
+        }
+        else{
+            setMessageInnerHTML(document.getElementById('username').value+"对"+selectText+"说："+ $("#text").val());
+        }
+        var message = {
+            "message":document.getElementById('text').value,
+            "username":document.getElementById('username').value,
+            "to":selectText
+        };
+        webSocket.send(JSON.stringify(message));
+        $("#text").val("");
+
+    }
+
+
+    L2Dwidget.init({
+        "model": {
+            //jsonpath控制显示那个小萝莉模型，下面这个就是我觉得最可爱的小萝莉模型，替换时后面名字也要替换掉
+            jsonPath: "https://unpkg.com/live2d-widget-model-hijiki@1.0.5/assets/hijiki.model.json",
+            "scale": 1
+        },
+        "display": {
+            "position": "right", //看板娘的表现位置
+            "width": 150,  //小萝莉的宽度
+            "height": 300, //小萝莉的高度
+            "hOffset": 0,
+            "vOffset": -20
+        },
+        "mobile": {
+            "show": true,
+            "scale": 0.5
+        },
+        "react": {
+            "opacityDefault": 0.7,
+            "opacityOnHover": 0.2
+        }
+    });
+
+</script>
+
+</html>
