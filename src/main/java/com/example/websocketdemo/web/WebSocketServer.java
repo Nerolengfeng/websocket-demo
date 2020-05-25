@@ -16,8 +16,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 
-@Component
-@ServerEndpoint("/websocket/{username}")
+//@Component
+//@ServerEndpoint("/websocket/{username}")
 public class WebSocketServer {
     private Logger logger = LoggerFactory.getLogger(this.getClass());
     /**

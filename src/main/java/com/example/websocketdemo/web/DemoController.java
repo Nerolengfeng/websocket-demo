@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-@RestController
+//@RestController
 @Slf4j
 public class DemoController {
 
